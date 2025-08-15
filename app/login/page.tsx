@@ -38,7 +38,25 @@ export default function LoginPage(){
       position:'relative',
       overflow:'hidden'
     }}>
-      {/* Центрированное лого за формой */}
+      {/* БОЛЬШОЕ ЛОГО-ЩИТ ЗА ФОРМОЙ */}
+      <svg
+        aria-hidden
+        width="0" height="0" style={{position:'absolute'}}
+      >
+        <defs>
+          <clipPath id="shield" clipPathUnits="objectBoundingBox">
+            {/* Щит: верх круглый, низ острый */}
+            <path d="
+              M 0.5,0
+              C 0.78,0.0 1.0,0.12 1.0,0.35
+              C 1.0,0.58 0.85,0.78 0.67,0.92
+              C 0.55,1.0 0.45,1.0 0.33,0.92
+              C 0.15,0.78 0.0,0.58 0.0,0.35
+              C 0.0,0.12 0.22,0.0 0.5,0.0 Z" />
+          </clipPath>
+        </defs>
+      </svg>
+
       <div
         aria-hidden
         style={{
@@ -46,22 +64,21 @@ export default function LoginPage(){
           left:'50%',
           top:'50%',
           transform:'translate(-50%,-50%)',
-          width:'min(48vw, 420px)',
-          height:'min(48vw, 420px)',
-          display:'grid',
-          placeItems:'center',
-          opacity:.95,
-          pointerEvents:'none',   // чтобы клики попадали в форму
+          width:'min(62vw, 560px)',
+          height:'min(62vw, 560px)',
+          clipPath:'url(#shield)',
+          opacity:0.98,
+          filter:'drop-shadow(0 28px 60px rgba(0,0,0,.55))',
+          pointerEvents:'none',
           zIndex:0
         }}
       >
         <Image
           src="/images/Logo_1.webp"
           alt=""
-          width={420}
-          height={420}
+          fill
           priority
-          style={{objectFit:'contain', width:'100%', height:'100%', filter:'drop-shadow(0 12px 36px rgba(0,0,0,.5))'}}
+          style={{objectFit:'cover'}}
         />
       </div>
 
@@ -71,11 +88,11 @@ export default function LoginPage(){
         style={{
           position:'relative',
           zIndex:1,
-          width:'min(92vw, 380px)',
+          width:'min(92vw, 420px)',
           background:'rgba(17,24,39,.92)',
           border:'1px solid #1f2937',
           borderRadius:16,
-          padding:20,
+          padding:22,
           color:'#e5e7eb',
           boxShadow:'0 18px 40px rgba(0,0,0,.45)',
           backdropFilter:'blur(8px)'
