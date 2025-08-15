@@ -1,0 +1,1 @@
+export default function Dashboard(){ return <div style={{padding:20,color:'#e5e7eb',background:'#0b1220',minHeight:'100vh'}}>Dashboard. Add your content here. <a className='btn' href='/confirm' style={{marginLeft:10}}>Clarify and confirm details</a></div> }

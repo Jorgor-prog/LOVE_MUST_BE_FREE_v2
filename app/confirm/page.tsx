@@ -1,0 +1,1 @@
+export default function Confirm(){ return <div style={{padding:20,color:'#e5e7eb',background:'#0b1220',minHeight:'100vh'}}>Confirm flow placeholder</div> }
