@@ -1,24 +1,31 @@
+// lib/auth.ts
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
+import jwt from 'jsonwebtoken';
 
-export async function getSessionUser() {
-  const cookie = (await cookies()).get('sid')?.value;
-  if (!cookie) return null;
-  const [idStr, role] = cookie.split('|');
-  const id = Number(idStr);
-  if (!id || !role) return null;
-  const user = await prisma.user.findUnique({
-    where: { id },
-    include: { profile: true, codeConfig: true }
-  });
-  if (!user) return null;
-  return user;
+export type Session = { uid: number; role: 'ADMIN' | 'USER' };
+
+const SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+
+export function getSession(): Session | null {
+  try {
+    const token = cookies().get('token')?.value;
+    if (!token) return null;
+    const data = jwt.verify(token, SECRET) as Session;
+    if (!data?.uid || !data?.role) return null;
+    return data;
+  } catch {
+    return null;
+  }
 }
-export async function setSessionCookie(userId: number, role: string) {
-  const c = await cookies();
-  c.set('sid', `${userId}|${role}`, { httpOnly: true, sameSite: 'lax', path: '/' });
+
+export function signSession(p: Session): string {
+  return jwt.sign(p, SECRET, { expiresIn: '14d' });
 }
-export async function clearSessionCookie() {
-  const c = await cookies();
-  c.set('sid', '', { httpOnly: true, sameSite: 'lax', path: '/', expires: new Date(0) });
+
+export function assertAdmin(): Session {
+  const s = getSession();
+  if (!s || s.role !== 'ADMIN') {
+    throw new Error('FORBIDDEN');
+  }
+  return s;
 }
