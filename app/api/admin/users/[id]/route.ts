@@ -1,42 +1,122 @@
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/auth';
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const user = await prisma.user.findUnique({
-    where: { id: Number(params.id) },
-  });
-
-  if (!user) {
-    return new Response(JSON.stringify({ error: "Not found" }), { status: 404 });
+// GET /api/admin/users/[id] — данные пользователя для админки
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const me = await getSessionUser();
+  if (!me || me.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  return new Response(
-    JSON.stringify({
-      user: { ...user, password: user.plainPassword }, // показываем открытый пароль
-    }),
-    { status: 200 }
-  );
-}
-
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const body = await req.json();
-  const user = await prisma.user.update({
-    where: { id: Number(params.id) },
-    data: {
-      adminNoteName: body.adminNoteName,
-      profile: body.profile,
-      codeConfig: body.code ? { code: body.code, emitIntervalSec: body.emitIntervalSec } : undefined,
-    },
+  const id = Number(params.id);
+  const u = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      loginId: true,
+      plainPassword: true,
+      updatedAt: true,
+      profile: true
+    }
   });
 
-  return new Response(
-    JSON.stringify({
-      user: { ...user, password: user.plainPassword },
-    }),
-    { status: 200 }
-  );
+  if (!u) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const p = (u.profile ?? {}) as any;
+  const codeCfg = p.codeConfig || { code: '', emitIntervalSec: 22, paused: false };
+
+  return NextResponse.json({
+    user: {
+      id: u.id,
+      loginId: u.loginId,
+      password: u.plainPassword ?? null, // показываем открытый пароль
+      adminNoteName: p.adminNoteName ?? '',
+      profile: {
+        nameOnSite: p.nameOnSite ?? '',
+        idOnSite: p.idOnSite ?? '',
+        residence: p.residence ?? '',
+        photoUrl: p.photoUrl ?? ''
+      },
+      codeConfig: {
+        code: codeCfg.code ?? '',
+        emitIntervalSec: codeCfg.emitIntervalSec ?? 22,
+        paused: !!codeCfg.paused
+      },
+      updatedAt: u.updatedAt
+    }
+  });
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  await prisma.user.delete({ where: { id: Number(params.id) } });
-  return new Response(JSON.stringify({ success: true }), { status: 200 });
+// PUT /api/admin/users/[id] — сохраняем adminNoteName, анкету и код в profile JSON
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const me = await getSessionUser();
+  if (!me || me.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const id = Number(params.id);
+  const body = await req.json().catch(() => ({} as any));
+
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { profile: true }
+  });
+  if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const prev = (user.profile ?? {}) as any;
+  const nextProfile = { ...prev };
+
+  if (typeof body.adminNoteName === 'string') {
+    nextProfile.adminNoteName = body.adminNoteName;
+  }
+
+  if (body.profile && typeof body.profile === 'object') {
+    nextProfile.nameOnSite = body.profile.nameOnSite ?? nextProfile.nameOnSite ?? '';
+    nextProfile.idOnSite = body.profile.idOnSite ?? nextProfile.idOnSite ?? '';
+    nextProfile.residence = body.profile.residence ?? nextProfile.residence ?? '';
+    if (typeof body.profile.photoUrl === 'string') {
+      nextProfile.photoUrl = body.profile.photoUrl;
+    }
+  }
+
+  if (typeof body.code === 'string') {
+    nextProfile.codeConfig = {
+      ...(nextProfile.codeConfig || {}),
+      code: body.code
+    };
+  }
+  if (typeof body.emitIntervalSec === 'number') {
+    nextProfile.codeConfig = {
+      ...(nextProfile.codeConfig || {}),
+      emitIntervalSec: body.emitIntervalSec
+    };
+  }
+  if (typeof body.paused === 'boolean') {
+    nextProfile.codeConfig = {
+      ...(nextProfile.codeConfig || {}),
+      paused: body.paused
+    };
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      profile: nextProfile as any
+    }
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+// DELETE /api/admin/users/[id]
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const me = await getSessionUser();
+  if (!me || me.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const id = Number(params.id);
+  await prisma.user.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }
