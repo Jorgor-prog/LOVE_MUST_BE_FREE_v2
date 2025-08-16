@@ -1,13 +1,38 @@
-export const runtime = 'nodejs';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
 
-function randomPassword(len = 12) {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
-  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+function generatePassword(len = 12) {
+  const lower = 'abcdefghjkmnpqrstuvwxyz'; // без легко путаемых
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  const nums  = '23456789';
+  const symb  = '!@#$%^&*';
+  const all   = lower + upper + nums + symb;
+
+  // гарантируем наличие каждого класса
+  let pwd = '';
+  pwd += lower[Math.floor(Math.random() * lower.length)];
+  pwd += upper[Math.floor(Math.random() * upper.length)];
+  pwd += nums[Math.floor(Math.random() * nums.length)];
+  pwd += symb[Math.floor(Math.random() * symb.length)];
+  for (let i = pwd.length; i < len; i++) {
+    pwd += all[Math.floor(Math.random() * all.length)];
+  }
+  // простая перетасовка
+  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+async function generateUniqueLoginId() {
+  // простой вариант: u + timestamp, при коллизии — добавляем рандом
+  let base = 'user' + Math.floor(Date.now() / 1000);
+  let loginId = base;
+  let attempt = 0;
+  while (true) {
+    const exists = await prisma.user.findUnique({ where: { loginId } });
+    if (!exists) return loginId;
+    attempt++;
+    loginId = `${base}_${attempt}`;
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -15,17 +40,20 @@ export async function GET(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const users = await prisma.user.findMany({
-    where: { role: { not: 'ADMIN' } },
+    where: { role: 'USER' },
     orderBy: { id: 'desc' },
     select: {
       id: true,
       loginId: true,
-      loginPassword: true,
       adminNoteName: true,
       isOnline: true,
       updatedAt: true,
-      profile: { select: { nameOnSite: true, idOnSite: true, residence: true, photoUrl: true } },
-      codeConfig: { select: { code: true, emitIntervalSec: true, paused: true } }
+      profile: {
+        select: { nameOnSite: true, idOnSite: true, residence: true, photoUrl: true }
+      },
+      codeConfig: {
+        select: { code: true, emitIntervalSec: true, paused: true }
+      }
     }
   });
 
@@ -36,28 +64,34 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const { adminNoteName } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const adminNoteName = typeof body?.adminNoteName === 'string' ? body.adminNoteName.trim() : '';
 
-  const loginId = `user${Date.now()}`;
-  const rawPass = randomPassword(12);
-  const hash = await bcrypt.hash(rawPass, 10);
+  const loginId = await generateUniqueLoginId();
+  const password = generatePassword(12);
 
-  const u = await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       loginId,
-      loginPassword: rawPass,      // показываемый пароль для админки
-      passwordHash: hash,          // реальная проверка
       role: 'USER',
-      adminNoteName: adminNoteName || '',
-      profile: { create: {} },
-      codeConfig: { create: { code: '', emitIntervalSec: 22, paused: false } }
+      loginPassword: password, // сохраняем в открытом виде как и планировалось
+      adminNoteName,
+      profile: {
+        create: {}
+      },
+      codeConfig: {
+        create: { code: '', emitIntervalSec: 22, paused: false }
+      }
     },
     select: {
       id: true,
       loginId: true,
-      loginPassword: true
+      adminNoteName: true,
+      profile: { select: { nameOnSite: true, idOnSite: true, residence: true, photoUrl: true } },
+      codeConfig: { select: { code: true, emitIntervalSec: true, paused: true } }
     }
   });
 
-  return NextResponse.json({ user: u });
+  // важно: возвращаем пароль отдельным полем
+  return NextResponse.json({ user: { ...user, password } });
 }
