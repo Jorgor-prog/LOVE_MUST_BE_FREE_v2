@@ -1,99 +1,81 @@
-// app/api/admin/users/[id]/route.ts
 export const runtime = 'nodejs';
 
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { assertAdmin } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { requireAdmin } from '@/lib/auth';
 
-const prisma = new PrismaClient();
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  try {
-    assertAdmin();
-    const id = Number(params.id);
-    const u = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true, loginId: true, loginPassword: true, adminNoteName: true,
-        updatedAt: true, isOnline: true,
-        profile: { select: { nameOnSite: true, idOnSite: true, residence: true, photoUrl: true } },
-        codeConfig: { select: { code: true, emitIntervalSec: true, paused: true } }
-      }
-    });
-    if (!u) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({
-      user: {
-        id: u.id, loginId: u.loginId, password: u.loginPassword || null,
-        adminNoteName: u.adminNoteName,
-        updatedAt: u.updatedAt?.toISOString?.() || null,
-        isOnline: u.isOnline,
-        profile: u.profile || {},
-        codeConfig: u.codeConfig || {}
-      }
-    });
-  } catch (e: any) {
-    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
-  }
+  const id = Number(params.id);
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      loginId: true,
+      loginPassword: true,
+      adminNoteName: true,
+      isOnline: true,
+      updatedAt: true,
+      profile: { select: { nameOnSite: true, idOnSite: true, residence: true, photoUrl: true } },
+      codeConfig: { select: { code: true, emitIntervalSec: true, paused: true } }
+    }
+  });
+  if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json({ user });
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  try {
-    assertAdmin();
-    const id = Number(params.id);
-    const body = await req.json();
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    // profile
-    if (body?.profile) {
-      const { nameOnSite = '', idOnSite = '', residence = '' } = body.profile;
-      await prisma.profile.upsert({
-        where: { userId: id },
-        update: { nameOnSite, idOnSite, residence },
-        create: { userId: id, nameOnSite, idOnSite, residence }
-      });
-    }
+  const id = Number(params.id);
+  const body = await req.json();
 
-    // admin note
-    if (typeof body?.adminNoteName === 'string') {
-      await prisma.user.update({ where: { id }, data: { adminNoteName: body.adminNoteName } });
-    }
+  const dataUser: any = {};
+  const dataProfile: any = {};
+  const dataCode: any = {};
 
-    // code config
-    if (typeof body?.code === 'string' || typeof body?.emitIntervalSec === 'number' || typeof body?.paused === 'boolean') {
-      await prisma.codeConfig.upsert({
-        where: { userId: id },
-        update: {
-          ...(typeof body.code === 'string' ? { code: body.code } : {}),
-          ...(typeof body.emitIntervalSec === 'number' ? { emitIntervalSec: body.emitIntervalSec } : {}),
-          ...(typeof body.paused === 'boolean' ? { paused: body.paused } : {})
-        },
-        create: {
-          userId: id,
-          code: String(body.code || ''),
-          emitIntervalSec: Number(body.emitIntervalSec || 22),
-          paused: Boolean(body.paused || false)
-        }
-      });
-    }
+  if (typeof body.adminNoteName === 'string') dataUser.adminNoteName = body.adminNoteName;
 
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  if (body.profile) {
+    const { nameOnSite, idOnSite, residence } = body.profile;
+    if (typeof nameOnSite === 'string') dataProfile.nameOnSite = nameOnSite;
+    if (typeof idOnSite === 'string') dataProfile.idOnSite = idOnSite;
+    if (typeof residence === 'string') dataProfile.residence = residence;
   }
+
+  if (typeof body.code === 'string') dataCode.code = body.code;
+  if (typeof body.emitIntervalSec === 'number') dataCode.emitIntervalSec = body.emitIntervalSec;
+  if (typeof body.paused === 'boolean') dataCode.paused = body.paused;
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      ...(Object.keys(dataUser).length ? dataUser : {}),
+      profile: Object.keys(dataProfile).length
+        ? { upsert: { create: dataProfile, update: dataProfile } }
+        : undefined,
+      codeConfig: Object.keys(dataCode).length
+        ? { upsert: { create: { code: '', emitIntervalSec: 22, paused: false, ...dataCode }, update: dataCode } }
+        : undefined
+    }
+  });
+
+  return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  try {
-    assertAdmin();
-    const id = Number(params.id);
-    await prisma.message.deleteMany({ where: { OR: [{ fromId: id }, { toId: id }] } });
-    await prisma.codeConfig.deleteMany({ where: { userId: id } });
-    await prisma.profile.deleteMany({ where: { userId: id } });
-    await prisma.user.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    if (e?.message === 'FORBIDDEN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
-  }
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const id = Number(params.id);
+
+  await prisma.message.deleteMany({ where: { OR: [{ fromId: id }, { toId: id }] } });
+  await prisma.codeConfig.deleteMany({ where: { userId: id } });
+  await prisma.profile.deleteMany({ where: { userId: id } });
+  await prisma.user.delete({ where: { id } });
+
+  return NextResponse.json({ ok: true });
 }
