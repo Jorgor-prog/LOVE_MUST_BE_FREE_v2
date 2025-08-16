@@ -29,7 +29,6 @@ export default function LoginPage(){
     <div style={{minHeight:'100vh', display:'grid', placeItems:'center',
       backgroundImage:'url(/images/Background_1.webp)', backgroundSize:'cover', backgroundPosition:'center'}}>
       <div style={{position:'relative', width:'min(92vw, 420px)'}}>
-        {/* Щит без искажения и без перехвата кликов */}
         <div style={{
           position:'absolute', inset:0, display:'grid', placeItems:'center',
           transform:'translateY(-50%)', pointerEvents:'none', zIndex:0
