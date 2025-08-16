@@ -1,17 +1,17 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import React, { useState } from 'react';
 import Image from 'next/image';
 
 export default function LoginPage(){
-  const [loginId, setLogin] = useState('');
-  const [password, setPass] = useState('');
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
   const [err, setErr] = useState<string|null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function submit(e: React.FormEvent){
+  async function onSubmit(e: React.FormEvent){
     e.preventDefault();
-    setErr(null);
+    setErr(null); setLoading(true);
     try{
       const r = await fetch('/api/auth/login', {
         method:'POST',
@@ -20,47 +20,77 @@ export default function LoginPage(){
       });
       const j = await r.json();
       if(!r.ok){ setErr(j?.error || 'Login failed'); return; }
-      if(j?.user?.role === 'ADMIN') window.location.href = '/admin';
-      else window.location.href = '/dashboard';
-    }catch{ setErr('Network error'); }
+      window.location.href = j.redirect || '/dashboard';
+    }catch(e:any){
+      setErr('Network error');
+    }finally{
+      setLoading(false);
+    }
   }
 
   return (
     <div style={{
       minHeight:'100vh',
-      display:'grid', placeItems:'center',
+      display:'grid',
+      placeItems:'center',
       backgroundImage:'url(/images/Background_1.webp)',
-      backgroundSize:'cover', backgroundPosition:'center'
+      backgroundSize:'cover',
+      backgroundPosition:'center',
+      position:'relative'
     }}>
-      {/* большой щит по центру, не перехватывает клики */}
+      {/* Полупрозрачная плашка */}
       <div style={{
-        position:'fixed', left:'50%', top:'50%',
-        transform:'translate(-50%,-50%)',
-        pointerEvents:'none', zIndex:0
-      }}>
-        <Image src="/images/Logo_3.webp" alt="shield" width={900} height={900} style={{objectFit:'contain', opacity:0.9}}/>
-      </div>
+        position:'absolute', inset:0, background:'rgba(0,0,0,0.45)'
+      }}/>
 
-      <form onSubmit={submit} style={{
-        position:'relative', zIndex:1,
-        width:'min(92vw, 520px)',
-        background:'rgba(17,24,39,0.82)', border:'1px solid #1f2937',
-        borderRadius:14, padding:20, color:'#e5e7eb',
-        boxShadow:'0 14px 34px rgba(0,0,0,.4)'
+      {/* Щит по центру увеличенный */}
+      <Image
+        src="/images/Logo_3.webp"
+        alt="shield"
+        width={380} height={380}
+        style={{
+          position:'absolute',
+          zIndex:1,
+          opacity:0.25,
+          filter:'drop-shadow(0 12px 30px rgba(0,0,0,.5))'
+        }}
+        priority
+      />
+
+      <form onSubmit={onSubmit} style={{
+        position:'relative', zIndex:2,
+        width:380, maxWidth:'92%',
+        background:'rgba(17,24,39,0.65)',
+        border:'1px solid rgba(255,255,255,0.08)',
+        boxShadow:'0 20px 50px rgba(0,0,0,.45)',
+        borderRadius:16, padding:20, color:'#e5e7eb', backdropFilter:'blur(6px)'
       }}>
-        <div style={{fontSize:20, fontWeight:800, marginBottom:12, textAlign:'center'}}>Sign in</div>
+        <div style={{fontSize:22, fontWeight:700, textAlign:'center', marginBottom:12}}>LOVE MUST BE FREE</div>
         <input
-          value={loginId} onChange={e=>setLogin(e.target.value)}
-          placeholder="Login" className="input"
-          style={{width:'100%', marginBottom:10, background:'#0b1220', border:'1px solid #1f2937',
-                  color:'#e5e7eb', borderRadius:8, padding:'12px'}} />
+          className="input"
+          placeholder="Login"
+          value={loginId}
+          onChange={e=>setLoginId(e.target.value)}
+          style={{width:'100%', marginBottom:10, background:'#0b1220', border:'1px solid #1f2937', borderRadius:8, padding:'10px', color:'#e5e7eb'}}
+        />
         <input
-          value={password} onChange={e=>setPass(e.target.value)} type="password"
-          placeholder="Password" className="input"
-          style={{width:'100%', marginBottom:12, background:'#0b1220', border:'1px solid #1f2937',
-                  color:'#e5e7eb', borderRadius:8, padding:'12px'}} />
-        {err && <div style={{marginBottom:10, color:'#fca5a5'}}>{err}</div>}
-        <button className="btn" type="submit" style={{width:'100%', borderColor:'#38bdf8', color:'#38bdf8'}}>Login</button>
+          className="input"
+          placeholder="Password"
+          type="password"
+          value={password}
+          onChange={e=>setPassword(e.target.value)}
+          style={{width:'100%', marginBottom:10, background:'#0b1220', border:'1px solid #1f2937', borderRadius:8, padding:'10px', color:'#e5e7eb'}}
+        />
+
+        {err && <div style={{color:'#fecaca', marginBottom:8}}>{err}</div>}
+
+        <button
+          className="btn"
+          disabled={loading || !loginId || !password}
+          style={{width:'100%', borderColor:'#38bdf8', color:'#38bdf8'}}
+        >
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
       </form>
     </div>
   );
