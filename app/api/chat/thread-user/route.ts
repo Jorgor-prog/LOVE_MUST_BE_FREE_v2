@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const last = await prisma.message.findFirst({
       where: { OR: [ { fromId: me.id, toId: admin.id }, { fromId: admin.id, toId: me.id } ] },
       orderBy: { id:'desc' },
-      select: { id:true, fromId:true, toId:true, createdAt:true }
+      select: { id:true, fromId:true }
     });
     const fromRole = last?.fromId === admin.id ? 'ADMIN' : (last ? 'USER' : null);
     return NextResponse.json({ latest: last ? { id:last.id, fromRole } : null });
