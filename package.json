@@ -4,12 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start -p 10000",
     "postinstall": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "build": "NODE_OPTIONS='--max_old_space_size=256' next build --no-lint",
+    "start": "NODE_OPTIONS='--max_old_space_size=256' next start -p $PORT"
   },
   "dependencies": {
     "@prisma/client": "5.14.0",
