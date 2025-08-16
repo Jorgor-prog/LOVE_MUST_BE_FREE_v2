@@ -1,31 +1,73 @@
-// lib/auth.ts
-import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from './prisma';
 
-export type Session = { uid: number; role: 'ADMIN' | 'USER' };
+const COOKIE_NAME = 'token';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-const SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+type TokenPayload = { uid: number; role: 'ADMIN' | 'USER' };
 
-export function getSession(): Session | null {
+export function signToken(payload: TokenPayload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
+}
+
+export function verifyToken(token: string): TokenPayload | null {
   try {
-    const token = cookies().get('token')?.value;
-    if (!token) return null;
-    const data = jwt.verify(token, SECRET) as Session;
-    if (!data?.uid || !data?.role) return null;
-    return data;
+    return jwt.verify(token, JWT_SECRET) as TokenPayload;
   } catch {
     return null;
   }
 }
 
-export function signSession(p: Session): string {
-  return jwt.sign(p, SECRET, { expiresIn: '14d' });
+export function setAuthCookie(res: NextResponse, token: string) {
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: token,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30
+  });
 }
 
-export function assertAdmin(): Session {
-  const s = getSession();
-  if (!s || s.role !== 'ADMIN') {
-    throw new Error('FORBIDDEN');
-  }
-  return s;
+export function clearAuthCookie(res: NextResponse) {
+  res.cookies.set({
+    name: COOKIE_NAME,
+    value: '',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 0
+  });
+}
+
+export function getTokenFromRequest(req: NextRequest): TokenPayload | null {
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+export async function getUserFromRequest(req: NextRequest) {
+  const payload = getTokenFromRequest(req);
+  if (!payload) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: payload.uid },
+    include: { profile: true, codeConfig: true }
+  });
+  return user;
+}
+
+export async function requireAuth(req: NextRequest) {
+  const payload = getTokenFromRequest(req);
+  if (!payload) return null;
+  return payload;
+}
+
+export async function requireAdmin(req: NextRequest) {
+  const payload = await requireAuth(req);
+  if (!payload || payload.role !== 'ADMIN') return null;
+  return payload;
 }
