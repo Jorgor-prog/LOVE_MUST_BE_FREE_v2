@@ -1,4 +1,4 @@
-'user client';
+'use client';
 export const dynamic = 'force-dynamic';
 
 import Image from 'next/image';
@@ -91,7 +91,6 @@ export default function ConfirmPage(){
       backgroundImage:'url(/images/Background_1.webp)', backgroundSize:'cover', backgroundPosition:'center'}}>
       <UserTopBar />
 
-      {/* Декоративный щит, не перекрывает клики */}
       <div style={{position:'absolute', top:90, left:0, right:0, display:'grid', placeItems:'center',
                    pointerEvents:'none', zIndex:0}}>
         <Image src="/images/Logo_3.webp" alt="logo" width={200} height={200} style={{objectFit:'contain', opacity:.75}}/>
