@@ -25,7 +25,7 @@ model Message {
   id        Int      @id @default(autoincrement())
   fromId    Int
   toId      Int
-  content   String
+  text      String   // 👈 скорее всего у тебя именно text, а не content
   createdAt DateTime @default(now())
 
   from User @relation("MessageFrom", fields: [fromId], references: [id])
