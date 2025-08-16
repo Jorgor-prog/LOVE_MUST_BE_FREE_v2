@@ -73,17 +73,21 @@ export default function ConfirmPage(){
   function doStart(){ setPaused(false); setShowPauseNote(false); }
 
   async function checkMatch(){
-    const ok = (profile?.idOnSite||'').trim() === idOnSite.trim(); // сверяем только ID
+    const ok = (profile?.idOnSite||'').trim() === idOnSite.trim(); // сверяем ТОЛЬКО id
     setMatches(ok);
     setStep(3);
   }
 
   const Card = ({children}:{children:React.ReactNode}) => (
-    <div style={{width:820, maxWidth:'92vw', background:'rgba(17,24,39,0.82)', border:'1px solid #1f2937',
-                 borderRadius:16, padding:18, color:'#e5e7eb', boxShadow:'0 10px 30px rgba(0,0,0,.35)', zIndex:1, position:'relative'}}>{children}</div>
+    <div style={{
+      width:820, maxWidth:'92vw',
+      background:'rgba(17,24,39,0.86)', border:'1px solid #1f2937',
+      borderRadius:16, padding:18, color:'#e5e7eb', boxShadow:'0 10px 30px rgba(0,0,0,.35)',
+      zIndex:1, position:'relative'
+    }}>{children}</div>
   );
   const Helper = ({children}:{children:React.ReactNode}) => (
-    <div style={{fontSize:12, color:'#94a3b8', marginTop:4}}>{children}</div>
+    <div style={{fontSize:12, color:'#94a3b8', marginTop:2}}>{children}</div>
   );
 
   return (
@@ -91,9 +95,10 @@ export default function ConfirmPage(){
       backgroundImage:'url(/images/Background_1.webp)', backgroundSize:'cover', backgroundPosition:'center'}}>
       <UserTopBar />
 
-      <div style={{position:'absolute', top:90, left:0, right:0, display:'grid', placeItems:'center',
+      {/* крупный щит под карточкой */}
+      <div style={{position:'absolute', top:100, left:0, right:0, display:'grid', placeItems:'center',
                    pointerEvents:'none', zIndex:0}}>
-        <Image src="/images/Logo_3.webp" alt="logo" width={200} height={200} style={{objectFit:'contain', opacity:.75}}/>
+        <Image src="/images/Logo_3.webp" alt="logo" width={420} height={420} style={{objectFit:'contain', opacity:.8}}/>
       </div>
 
       <div style={{display:'grid', placeItems:'center', padding:'28px 12px', position:'relative', zIndex:1}}>
@@ -119,34 +124,29 @@ export default function ConfirmPage(){
           )}
 
           {step===2 && (
-            <div style={{display:'grid', gap:10}}>
+            <div style={{display:'grid', gap:12}}>
               <div>
                 <label>Your name on the website</label>
-                <input className="input" placeholder="Your name on the website" value={nameOnSite}
-                       onChange={e=>setName(e.target.value)}
+                <input className="input" value={nameOnSite} onChange={e=>setName(e.target.value)} placeholder="John"
                        style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937',
                                color:'#e5e7eb', borderRadius:8, padding:'10px'}} />
               </div>
-
               <div>
                 <label>Your ID on the website</label>
-                <input className="input" placeholder="Your ID on the website" value={idOnSite}
-                       onChange={e=>setId(e.target.value)}
+                <input className="input" value={idOnSite} onChange={e=>setId(e.target.value)} placeholder="ID12345"
                        style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937',
                                color:'#e5e7eb', borderRadius:8, padding:'10px'}} />
               </div>
-
               <div>
                 <label>Place of residence indicated on the website</label>
-                <input className="input" placeholder="Place of residence indicated on the website" value={residence}
-                       onChange={e=>setRes(e.target.value)}
+                <input className="input" value={residence} onChange={e=>setRes(e.target.value)} placeholder="City, Country"
                        style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937',
                                color:'#e5e7eb', borderRadius:8, padding:'10px'}} />
               </div>
 
               <Helper>The panda rabbit crocodile, di di di, eats candy, and could eat shashlik, but the elephant didn't come</Helper>
 
-              <div style={{display:'flex', gap:10, marginTop:6, flexWrap:'wrap'}}>
+              <div style={{display:'flex', gap:10, marginTop:2, flexWrap:'wrap'}}>
                 <a className="btn" href="/chat" style={{borderColor:'#38bdf8', color:'#38bdf8'}}>Open support chat</a>
                 <button className="btn btn-primary" onClick={checkMatch}
                         style={{borderColor:'#22c55e', color:'#22c55e'}}>Confirm and continue</button>
