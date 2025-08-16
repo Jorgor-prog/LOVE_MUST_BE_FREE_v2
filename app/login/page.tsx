@@ -32,14 +32,18 @@ export default function LoginPage(){
       backgroundImage:'url(/images/Background_1.webp)',
       backgroundSize:'cover', backgroundPosition:'center'
     }}>
-      {/* крупный щит под формой, не перехватывает клики */}
-      <div style={{position:'absolute', inset:0, display:'grid', placeItems:'center', pointerEvents:'none', zIndex:0}}>
-        <Image src="/images/Logo_3.webp" alt="shield" width={880} height={880} style={{objectFit:'contain', opacity:0.85}}/>
+      {/* большой щит по центру, не перехватывает клики */}
+      <div style={{
+        position:'fixed', left:'50%', top:'50%',
+        transform:'translate(-50%,-50%)',
+        pointerEvents:'none', zIndex:0
+      }}>
+        <Image src="/images/Logo_3.webp" alt="shield" width={900} height={900} style={{objectFit:'contain', opacity:0.9}}/>
       </div>
 
       <form onSubmit={submit} style={{
         position:'relative', zIndex:1,
-        width:'min(92vw, 480px)',
+        width:'min(92vw, 520px)',
         background:'rgba(17,24,39,0.82)', border:'1px solid #1f2937',
         borderRadius:14, padding:20, color:'#e5e7eb',
         boxShadow:'0 14px 34px rgba(0,0,0,.4)'
