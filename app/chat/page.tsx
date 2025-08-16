@@ -1,11 +1,15 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type Msg = { id:number; fromId:number; toId:number; text:string; createdAt:string };
-type Me = { id:number; role:'USER'|'ADMIN' };
+type Me  = { id:number; role:'USER'|'ADMIN' };
 
-export default function ChatPage(){
+// заставляем страницу быть динамической (не пререндерить)
+export const dynamic = 'force-dynamic';
+
+function ChatInner(){
   const params = useSearchParams();
   const [me, setMe] = useState<Me|null>(null);
   const [peerId, setPeerId] = useState<number|null>(null);
@@ -14,12 +18,10 @@ export default function ChatPage(){
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Автопрокрутка вниз
   useEffect(()=>{
     scrollRef.current?.scrollTo({ top: 999999, behavior:'smooth' });
   },[messages.length]);
 
-  // Инициализация: кто я и с кем чат
   useEffect(()=>{
     (async ()=>{
       const meRes = await fetch('/api/me').then(r=>r.json()).catch(()=>null);
@@ -37,10 +39,9 @@ export default function ChatPage(){
         setPeerId(r.id);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-  // Загрузка/опрос сообщений
   useEffect(()=>{
     let stop=false;
     async function load(){
@@ -51,7 +52,6 @@ export default function ChatPage(){
         setMessages(j.messages||[]);
         setLoading(false);
 
-        // помечаем «прочитано»
         if(j.messages?.length){
           const lastId = j.messages[j.messages.length-1].id;
           if(me?.role === 'ADMIN'){
@@ -76,7 +76,6 @@ export default function ChatPage(){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ toId: peerId, text: tt })
     });
-    // сразу подтянуть
     const r = await fetch(`/api/chat/thread?peerId=${peerId}`);
     const j = await r.json();
     setMessages(j.messages||[]);
@@ -114,5 +113,13 @@ export default function ChatPage(){
         <button className="btn" onClick={send} style={{borderColor:'#38bdf8', color:'#38bdf8'}}>Send</button>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage(){
+  return (
+    <Suspense fallback={<div style={{padding:20, color:'#e5e7eb'}}>Loading…</div>}>
+      <ChatInner/>
+    </Suspense>
   );
 }
