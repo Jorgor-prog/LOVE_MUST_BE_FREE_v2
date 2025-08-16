@@ -20,7 +20,6 @@ export default function AdminPage() {
   const [emitInterval, setEmitInterval] = useState(22);
   const [creating, setCreating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [hasUnreadTop, setHasUnreadTop] = useState(false);
   const [unreadMap, setUnreadMap] = useState<Record<number, boolean>>({});
 
   useEffect(()=>{ document.body.style.background = '#0f172a'; return ()=>{ document.body.style.background=''; };},[]);
@@ -31,23 +30,6 @@ export default function AdminPage() {
     tick();
     const id = setInterval(tick, 30000);
     return ()=>clearInterval(id);
-  },[]);
-
-  // Индикатор в топе (оставлен, если у тебя есть верхняя кнопка Chat)
-  useEffect(()=>{
-    let stop=false;
-    const check = async ()=>{
-      try{
-        const r = await fetch('/api/chat/inbox');
-        const j = await r.json();
-        const latestId = j?.latestId || 0;
-        const lastSeen = Number(localStorage.getItem('chatLastSeenId_admin')||'0');
-        if(!stop) setHasUnreadTop(latestId>lastSeen);
-      }catch{}
-    };
-    check();
-    const id = setInterval(check, 12000);
-    return ()=>{ stop=true; clearInterval(id); };
   },[]);
 
   // КАРТА непрочитанного по каждому пользователю
@@ -163,11 +145,10 @@ export default function AdminPage() {
 
   return (
     <div style={{ minHeight:'100vh', color:'#e5e7eb' }}>
-      {/* top bar (если у тебя он есть — оставляю как было) */}
+      {/* top bar */}
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'rgba(17,24,39,0.6)', backdropFilter:'saturate(120%) blur(4px)', borderBottom:'1px solid #1f2937', position:'sticky', top:0, zIndex:10}}>
         <div style={{fontSize:22, fontWeight:700}}>Admin Panel</div>
         <div style={{display:'flex', gap:10}}>
-          {/* можно убрать Chat сверху, если он у тебя перенесён в карточку пользователя */}
           <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>Logout</button>
         </div>
       </div>
@@ -221,7 +202,7 @@ export default function AdminPage() {
                   {u.adminNoteName || `User #${u.id}`}
                 </span>
 
-                {/* индикатор непрочитанного — конверт */}
+                {/* непрочитанное — конверт, если последний писал ПОЛЬЗОВАТЕЛЬ */}
                 {unreadMap[u.id] && (
                   <span title="New message" style={{
                     marginLeft:8,
@@ -249,6 +230,19 @@ export default function AdminPage() {
             <>
               <div style={{ background:'#111827', border:'1px solid #1f2937', borderRadius:12, padding:16, boxShadow:'0 8px 22px rgba(0,0,0,.25)' }}>
                 <h3 style={{marginTop:0}}>User details</h3>
+
+                {/* Кнопка чата для ЭТОГО пользователя */}
+                <div style={{display:'flex', gap:8, margin:'4px 0 12px'}}>
+                  <a
+                    href={`/chat?uid=${selected.id}`}
+                    className="btn"
+                    style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}
+                    title="Open chat with this user"
+                  >
+                    Open chat with user
+                  </a>
+                </div>
+
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
                   <div>
                     <div><b>Login:</b> {selected.loginId}</div>
