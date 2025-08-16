@@ -3,13 +3,9 @@ import React, { useEffect, useState } from 'react';
 
 type Profile = { nameOnSite?:string; idOnSite?:string; residence?:string; photoUrl?:string };
 type CodeCfg = { code?:string; emitIntervalSec?:number; paused?:boolean };
-type UserLite = {
-  id:number; loginId:string; password?:string|null; adminNoteName?:string|null;
-  profile?:Profile; codeConfig?:CodeCfg; isOnline?:boolean; updatedAt?:string
-};
+type UserLite = { id:number; loginId:string; password?:string|null; adminNoteName?:string|null; profile?:Profile; codeConfig?:CodeCfg; isOnline?:boolean; updatedAt?:string };
 
 export default function AdminPage() {
-  // Проверка роли
   useEffect(()=>{
     (async ()=>{
       const me = await fetch('/api/me').then(r=>r.json()).catch(()=>null);
@@ -24,11 +20,12 @@ export default function AdminPage() {
   const [emitInterval, setEmitInterval] = useState(22);
   const [creating, setCreating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [hasUnreadTop, setHasUnreadTop] = useState(false);
+  const [unreadMap, setUnreadMap] = useState<Record<number, boolean>>({});
 
-  // Тёмная подложка
-  useEffect(()=>{ document.body.style.background = '#0b1220'; return ()=>{ document.body.style.background=''; };},[]);
+  useEffect(()=>{ document.body.style.background = '#0f172a'; return ()=>{ document.body.style.background=''; };},[]);
 
-  // Heartbeat (онлайн-индикатор)
+  // Heartbeat
   useEffect(()=>{
     const tick = () => fetch('/api/heartbeat', { method:'POST' }).catch(()=>{});
     tick();
@@ -36,11 +33,46 @@ export default function AdminPage() {
     return ()=>clearInterval(id);
   },[]);
 
-  function showToast(msg:string){ setToast(msg); setTimeout(()=>setToast(null), 3000); }
+  // Индикатор в топе (оставлен, если у тебя есть верхняя кнопка Chat)
+  useEffect(()=>{
+    let stop=false;
+    const check = async ()=>{
+      try{
+        const r = await fetch('/api/chat/inbox');
+        const j = await r.json();
+        const latestId = j?.latestId || 0;
+        const lastSeen = Number(localStorage.getItem('chatLastSeenId_admin')||'0');
+        if(!stop) setHasUnreadTop(latestId>lastSeen);
+      }catch{}
+    };
+    check();
+    const id = setInterval(check, 12000);
+    return ()=>{ stop=true; clearInterval(id); };
+  },[]);
+
+  // КАРТА непрочитанного по каждому пользователю
+  useEffect(()=>{
+    let stop=false;
+    const tick = async ()=>{
+      try{
+        const r = await fetch('/api/admin/unread-map');
+        const j = await r.json();
+        if(!stop) setUnreadMap(j.map || {});
+      }catch{}
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return ()=>{ stop=true; clearInterval(id); };
+  },[]);
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/login';
+  }
+
+  function showToast(msg:string){
+    setToast(msg);
+    setTimeout(()=>setToast(null), 3000);
   }
 
   async function loadUsers() {
@@ -52,7 +84,6 @@ export default function AdminPage() {
 
   async function openUser(id: number) {
     const r = await fetch(`/api/admin/users/${id}`);
-    if(!r.ok){ alert('Failed to load user'); return; }
     const j = await r.json();
     const u: UserLite = j.user;
     setSelected(u);
@@ -71,7 +102,6 @@ export default function AdminPage() {
     if (!r.ok) { alert('Failed to create'); return; }
     const j = await r.json();
     showToast('пользователь создан');
-    // очистка
     setSelected(null);
     setCode('');
     setEmitInterval(22);
@@ -86,8 +116,7 @@ export default function AdminPage() {
     const idOnSite = (document.getElementById('idOnSite') as HTMLInputElement).value;
     const residence = (document.getElementById('residence') as HTMLInputElement).value;
     await fetch(`/api/admin/users/${selected.id}`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
+      method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ profile:{ nameOnSite, idOnSite, residence } })
     });
     await openUser(selected.id);
@@ -108,8 +137,7 @@ export default function AdminPage() {
   async function saveModeration() {
     if (!selected) return;
     await fetch(`/api/admin/users/${selected.id}`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
+      method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ adminNoteName: internalName, code, emitIntervalSec: emitInterval })
     });
     await openUser(selected.id);
@@ -127,25 +155,20 @@ export default function AdminPage() {
 
   useEffect(()=>{ loadUsers(); },[]);
 
+  const now = Date.now();
   const isOnline = (u:UserLite) => {
     const ts = u.updatedAt ? new Date(u.updatedAt).getTime() : 0;
-    return !!u.isOnline && (Date.now() - ts) < 120000; // 2 мин
+    return !!u.isOnline && (now - ts) < 120000; // 2 мин
   };
 
   return (
     <div style={{ minHeight:'100vh', color:'#e5e7eb' }}>
-      {/* Top bar — только Logout */}
-      <div style={{
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'14px 20px', background:'rgba(17,24,39,0.6)',
-        backdropFilter:'saturate(120%) blur(4px)',
-        borderBottom:'1px solid #1f2937', position:'sticky', top:0, zIndex:10
-      }}>
+      {/* top bar (если у тебя он есть — оставляю как было) */}
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'rgba(17,24,39,0.6)', backdropFilter:'saturate(120%) blur(4px)', borderBottom:'1px solid #1f2937', position:'sticky', top:0, zIndex:10}}>
         <div style={{fontSize:22, fontWeight:700}}>Admin Panel</div>
         <div style={{display:'flex', gap:10}}>
-          <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>
-            Logout
-          </button>
+          {/* можно убрать Chat сверху, если он у тебя перенесён в карточку пользователя */}
+          <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>Logout</button>
         </div>
       </div>
 
@@ -162,7 +185,12 @@ export default function AdminPage() {
               onChange={e=>setInternalName(e.target.value)}
               style={{flex:1, minWidth:0, background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}}
             />
-            <button className="btn" onClick={createUser} disabled={creating} style={{borderColor:'#38bdf8', color:'#38bdf8'}}>
+            <button
+              className="btn"
+              onClick={createUser}
+              disabled={creating}
+              style={{borderColor:'#38bdf8', color:'#38bdf8'}}
+            >
               {creating ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -189,7 +217,26 @@ export default function AdminPage() {
                   width:10, height:10, borderRadius:'50%',
                   background: isOnline(u) ? '#22c55e' : '#64748b'
                 }}/>
-                {u.adminNoteName || `User #${u.id}`}
+                <span style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis'}}>
+                  {u.adminNoteName || `User #${u.id}`}
+                </span>
+
+                {/* индикатор непрочитанного — конверт */}
+                {unreadMap[u.id] && (
+                  <span title="New message" style={{
+                    marginLeft:8,
+                    width:14, height:10,
+                    border:'2px solid #38bdf8',
+                    borderTop:'none',
+                    borderRadius:2,
+                    position:'relative'
+                  }}>
+                    <span style={{
+                      position:'absolute', left:0, top:-2, right:0, height:2, background:'#38bdf8',
+                      transform:'skewX(-20deg)'
+                    }}/>
+                  </span>
+                )}
               </button>
             ))}
             {users.length === 0 && <div className="muted" style={{color:'#94a3b8'}}>No users yet</div>}
@@ -227,9 +274,7 @@ export default function AdminPage() {
                     <input id="residence" className="input" defaultValue={selected.profile?.residence||''}
                       style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
 
-                    <button className="btn" style={{borderColor:'#a78bfa', color:'#a78bfa', marginTop:12}} onClick={saveProfile}>
-                      Save profile
-                    </button>
+                    <button className="btn" style={{borderColor:'#a78bfa', color:'#a78bfa', marginTop:12}} onClick={saveProfile}>Save profile</button>
                   </div>
 
                   <div>
@@ -267,25 +312,9 @@ export default function AdminPage() {
                   style={{ background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px' }}
                 />
 
-                {/* Кнопки: Save, Open chat, Delete user */}
-                <div style={{ display:'flex', gap:8, marginTop:12, flexWrap:'wrap' }}>
-                  <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={saveModeration}>
-                    Save
-                  </button>
-
-                  {selected && (
-                    <a
-                      className="btn"
-                      href={`/admin/chat/${selected.id}`}
-                      style={{borderColor:'#38bdf8', color:'#38bdf8'}}
-                    >
-                      Open chat
-                    </a>
-                  )}
-
-                  <button className="btn" onClick={deleteUser} style={{ borderColor:'#ef4444', color:'#ef4444' }}>
-                    Delete user
-                  </button>
+                <div style={{ display:'flex', gap:8, marginTop:12 }}>
+                  <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={saveModeration}>Save</button>
+                  <button className="btn" onClick={deleteUser} style={{ borderColor:'#ef4444', color:'#ef4444' }}>Delete user</button>
                 </div>
               </div>
             </>
