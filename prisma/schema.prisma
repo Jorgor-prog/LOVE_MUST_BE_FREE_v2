@@ -9,15 +9,15 @@ datasource db {
 
 model User {
   id             Int       @id @default(autoincrement())
-  loginId        String    @unique
-  password       String
-  plainPassword  String?
-  role           String    @default("USER")
-  profile        Json?
+  loginId        String    @unique               // логин (и для админа, и для юзеров)
+  password       String                           // хэш пароля
+  plainPassword  String?                          // открытый пароль, показываемый админке
+  role           String    @default("USER")       // "ADMIN" | "USER"
+  profile        Json?                             // тут храним все: adminNoteName, nameOnSite, idOnSite, residence, photoUrl, codeConfig...
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  sentMessages    Message[] @relation("MessageFrom")
+  sentMessages     Message[] @relation("MessageFrom")
   receivedMessages Message[] @relation("MessageTo")
 }
 
@@ -25,7 +25,7 @@ model Message {
   id        Int      @id @default(autoincrement())
   fromId    Int
   toId      Int
-  text      String   // 👈 скорее всего у тебя именно text, а не content
+  text      String
   createdAt DateTime @default(now())
 
   from User @relation("MessageFrom", fields: [fromId], references: [id])
