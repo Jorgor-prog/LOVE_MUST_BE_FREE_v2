@@ -38,7 +38,7 @@ export default function LoginPage(){
       position:'relative',
       overflow:'hidden'
     }}>
-      {/* БОЛЬШОЕ ЛОГО ЗА ФОРМОЙ — Logo_3, тот же размер и позиция, что были у щита */}
+      {/* ЛОГО (щит) — в 2 раза больше */}
       <div
         aria-hidden
         style={{
@@ -46,8 +46,8 @@ export default function LoginPage(){
           left:'50%',
           top:'50%',
           transform:'translate(-50%,-50%)',
-          width:'min(62vw, 560px)',
-          height:'min(62vw, 560px)',
+          width:'min(96vw, 920px)',
+          height:'min(96vw, 920px)',
           opacity:0.98,
           filter:'drop-shadow(0 28px 60px rgba(0,0,0,.55))',
           pointerEvents:'none',
@@ -63,7 +63,7 @@ export default function LoginPage(){
         />
       </div>
 
-      {/* Форма логина по центру */}
+      {/* Форма логина */}
       <form
         onSubmit={submit}
         style={{
