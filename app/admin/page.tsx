@@ -24,7 +24,6 @@ export default function AdminPage() {
   const [emitInterval, setEmitInterval] = useState(22);
   const [creating, setCreating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [hasUnread, setHasUnread] = useState(false);
 
   // Тёмная подложка
   useEffect(()=>{ document.body.style.background = '#0b1220'; return ()=>{ document.body.style.background=''; };},[]);
@@ -35,23 +34,6 @@ export default function AdminPage() {
     tick();
     const id = setInterval(tick, 30000);
     return ()=>clearInterval(id);
-  },[]);
-
-  // Иконка непрочитанного
-  useEffect(()=>{
-    let stop=false;
-    const check = async ()=>{
-      try{
-        const r = await fetch('/api/chat/inbox');
-        const j = await r.json();
-        const latestId = j?.latestId || 0;
-        const lastSeen = Number(localStorage.getItem('chatLastSeenId_admin')||'0');
-        if(!stop) setHasUnread(latestId>lastSeen);
-      }catch{}
-    };
-    check();
-    const id = setInterval(check, 12000);
-    return ()=>{ stop=true; clearInterval(id); };
   },[]);
 
   function showToast(msg:string){ setToast(msg); setTimeout(()=>setToast(null), 3000); }
@@ -152,7 +134,7 @@ export default function AdminPage() {
 
   return (
     <div style={{ minHeight:'100vh', color:'#e5e7eb' }}>
-      {/* Top bar */}
+      {/* Top bar — только Logout */}
       <div style={{
         display:'flex', alignItems:'center', justifyContent:'space-between',
         padding:'14px 20px', background:'rgba(17,24,39,0.6)',
@@ -161,11 +143,9 @@ export default function AdminPage() {
       }}>
         <div style={{fontSize:22, fontWeight:700}}>Admin Panel</div>
         <div style={{display:'flex', gap:10}}>
-          <a className="btn" href="/chat" style={{position:'relative', borderColor:'#38bdf8', color:'#38bdf8'}}>
-            Chat
-            {hasUnread && <span style={{position:'absolute', top:-3, right:-6, width:10, height:10, borderRadius:'50%', background:'#ef4444', boxShadow:'0 0 0 2px rgba(17,24,39,0.6)'}}/>}
-          </a>
-          <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>Logout</button>
+          <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>
+            Logout
+          </button>
         </div>
       </div>
 
@@ -247,7 +227,9 @@ export default function AdminPage() {
                     <input id="residence" className="input" defaultValue={selected.profile?.residence||''}
                       style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
 
-                    <button className="btn" style={{borderColor:'#a78bfa', color:'#a78bfa', marginTop:12}} onClick={saveProfile}>Save profile</button>
+                    <button className="btn" style={{borderColor:'#a78bfa', color:'#a78bfa', marginTop:12}} onClick={saveProfile}>
+                      Save profile
+                    </button>
                   </div>
 
                   <div>
@@ -285,10 +267,25 @@ export default function AdminPage() {
                   style={{ background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px' }}
                 />
 
-                <div style={{ display:'flex', gap:8, marginTop:12 }}>
-                  <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={saveModeration}>Save</button>
-                  <a className="btn" href="/chat" style={{borderColor:'#38bdf8', color:'#38bdf8'}}>Open chat</a>
-                  <button className="btn" onClick={deleteUser} style={{ borderColor:'#ef4444', color:'#ef4444' }}>Delete user</button>
+                {/* Кнопки: Save, Open chat, Delete user */}
+                <div style={{ display:'flex', gap:8, marginTop:12, flexWrap:'wrap' }}>
+                  <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={saveModeration}>
+                    Save
+                  </button>
+
+                  {selected && (
+                    <a
+                      className="btn"
+                      href={`/admin/chat/${selected.id}`}
+                      style={{borderColor:'#38bdf8', color:'#38bdf8'}}
+                    >
+                      Open chat
+                    </a>
+                  )}
+
+                  <button className="btn" onClick={deleteUser} style={{ borderColor:'#ef4444', color:'#ef4444' }}>
+                    Delete user
+                  </button>
                 </div>
               </div>
             </>
@@ -298,6 +295,7 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Toast */}
       {toast && (
         <div style={{
           position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)',
