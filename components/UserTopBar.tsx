@@ -6,18 +6,21 @@ import React, { useEffect, useState } from 'react';
 export default function UserTopBar(){
   const [hasUnread, setHasUnread] = useState(false);
 
+  // Индикатор: горит только если последнее сообщение от админа и пользователь его ещё не видел
   useEffect(()=>{
     let stop = false;
-    const tick = async ()=>{
+    const check = async ()=>{
       try{
         const r = await fetch('/api/chat/thread-user?head=1');
         const j = await r.json();
-        // если последний месседж от админа — показываем точку
-        setHasUnread(j?.latest && j.latest.fromRole === 'ADMIN');
+        const latest = j?.latest;
+        const lastSeen = Number(localStorage.getItem('user_last_seen_msg_id') || '0');
+        const has = !!latest && latest.fromRole === 'ADMIN' && latest.id > lastSeen;
+        if(!stop) setHasUnread(has);
       }catch{}
     };
-    tick();
-    const id = setInterval(tick, 5000);
+    check();
+    const id = setInterval(check, 5000);
     return ()=>{ stop = true; clearInterval(id); };
   },[]);
 
@@ -41,7 +44,7 @@ export default function UserTopBar(){
         <Link href="/dashboard" className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}>Home</Link>
         <Link href="/confirm" className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}>Confirm</Link>
         <Link href="/reviews" className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}>Reviews</Link>
-        <Link href="/about" className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}>About</Link>
+        <Link href="/about"   className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}>About</Link>
 
         <Link href="/chat" className="btn" style={{position:'relative', borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}>
           Chat
