@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+export const runtime = 'nodejs';
 
-export async function POST(){
+import { NextResponse } from 'next/server';
+import { clearAuthCookie } from '@/lib/auth';
+
+export async function POST() {
   const res = NextResponse.json({ ok: true });
-  // Если используешь cookie-токен, раскомментируй:
-  // res.cookies.set('token', '', { httpOnly:true, path:'/', expires: new Date(0) });
+  clearAuthCookie(res);
   return res;
 }
