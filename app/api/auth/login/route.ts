@@ -1,41 +1,41 @@
-// app/api/auth/login/route.ts
 export const runtime = 'nodejs';
 
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { signSession } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { signToken, setAuthCookie } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { loginId, password } = await req.json();
+
     if (!loginId || !password) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
     }
+
     const user = await prisma.user.findUnique({ where: { loginId } });
-    if (!user) return NextResponse.json({ error: 'Invalid login' }, { status: 401 });
+    if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
 
     let ok = false;
-    if (user.role === 'ADMIN') {
-      ok = !!user.passwordHash && await bcrypt.compare(password, user.passwordHash);
-    } else {
-      ok = user.loginPassword === password;
-    }
-    if (!ok) return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
 
-    const token = signSession({ uid: user.id, role: user.role });
-    const res = NextResponse.json({ user: { id: user.id, role: user.role } });
-    res.cookies.set('token', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      secure: true,
-      maxAge: 60 * 60 * 24 * 14
-    });
+    // 1) Если есть хеш — проверяем его
+    if (user.passwordHash) {
+      ok = await bcrypt.compare(password, user.passwordHash);
+    }
+
+    // 2) Если не подошло — допускаем совпадение с loginPassword (видимый пароль)
+    if (!ok && user.loginPassword) {
+      ok = password === user.loginPassword;
+    }
+
+    if (!ok) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+
+    const token = signToken({ uid: user.id, role: user.role });
+    const res = NextResponse.json({ ok: true, role: user.role });
+
+    setAuthCookie(res, token);
     return res;
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Login error' }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
