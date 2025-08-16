@@ -1,4 +1,6 @@
 'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState } from 'react';
 
 type Profile = { nameOnSite?:string; idOnSite?:string; residence?:string; photoUrl?:string };
@@ -6,13 +8,7 @@ type CodeCfg = { code?:string; emitIntervalSec?:number; paused?:boolean };
 type UserLite = { id:number; loginId:string; password?:string|null; adminNoteName?:string|null; profile?:Profile; codeConfig?:CodeCfg; isOnline?:boolean; updatedAt?:string };
 
 export default function AdminPage() {
-  useEffect(()=>{
-    (async ()=>{
-      const me = await fetch('/api/me').then(r=>r.json()).catch(()=>null);
-      if(me?.user?.role !== 'ADMIN') window.location.href = '/dashboard';
-    })();
-  },[]);
-
+  const [ready, setReady] = useState(false);
   const [users, setUsers] = useState<UserLite[]>([]);
   const [selected, setSelected] = useState<UserLite | null>(null);
   const [internalName, setInternalName] = useState('');
@@ -20,37 +16,15 @@ export default function AdminPage() {
   const [emitInterval, setEmitInterval] = useState(22);
   const [creating, setCreating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [unreadMap, setUnreadMap] = useState<Record<number, boolean>>({});
 
-  useEffect(()=>{ document.body.style.background = '#0f172a'; return ()=>{ document.body.style.background=''; };},[]);
-
-  // Heartbeat
   useEffect(()=>{
-    const tick = () => fetch('/api/heartbeat', { method:'POST' }).catch(()=>{});
-    tick();
-    const id = setInterval(tick, 30000);
-    return ()=>clearInterval(id);
+    (async ()=>{
+      const me = await fetch('/api/me', { cache:'no-store' }).then(r=>r.json()).catch(()=>null);
+      if(me?.user?.role !== 'ADMIN'){ window.location.href='/login'; return; }
+      setReady(true);
+      loadUsers();
+    })();
   },[]);
-
-  // КАРТА непрочитанного по каждому пользователю
-  useEffect(()=>{
-    let stop=false;
-    const tick = async ()=>{
-      try{
-        const r = await fetch('/api/admin/unread-map');
-        const j = await r.json();
-        if(!stop) setUnreadMap(j.map || {});
-      }catch{}
-    };
-    tick();
-    const id = setInterval(tick, 5000);
-    return ()=>{ stop=true; clearInterval(id); };
-  },[]);
-
-  async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/login';
-  }
 
   function showToast(msg:string){
     setToast(msg);
@@ -58,14 +32,15 @@ export default function AdminPage() {
   }
 
   async function loadUsers() {
-    const r = await fetch('/api/admin/users');
-    if (!r.ok) { alert('Auth error. Re-login as Admin.'); return; }
+    const r = await fetch('/api/admin/users', { cache:'no-store' });
+    if(!r.ok){ return; }
     const j = await r.json();
     setUsers(j.users || []);
   }
 
   async function openUser(id: number) {
-    const r = await fetch(`/api/admin/users/${id}`);
+    const r = await fetch(`/api/admin/users/${id}`, { cache:'no-store' });
+    if(!r.ok) return;
     const j = await r.json();
     const u: UserLite = j.user;
     setSelected(u);
@@ -81,13 +56,10 @@ export default function AdminPage() {
       body: JSON.stringify({ adminNoteName: internalName })
     });
     setCreating(false);
-    if (!r.ok) { alert('Failed to create'); return; }
+    if (!r.ok) return;
     const j = await r.json();
     showToast('пользователь создан');
-    setSelected(null);
-    setCode('');
-    setEmitInterval(22);
-    setInternalName('');
+    setSelected(null); setCode(''); setEmitInterval(22); setInternalName('');
     await loadUsers();
     alert(`User created\nLogin: ${j.user.loginId}\nPassword: ${j.user.password}`);
   }
@@ -135,26 +107,33 @@ export default function AdminPage() {
     showToast('пользователь удален');
   }
 
-  useEffect(()=>{ loadUsers(); },[]);
+  async function logout(){
+    await fetch('/api/auth/logout', { method:'POST' });
+    window.location.href='/login';
+  }
+
+  if(!ready) return null;
 
   const now = Date.now();
   const isOnline = (u:UserLite) => {
     const ts = u.updatedAt ? new Date(u.updatedAt).getTime() : 0;
-    return !!u.isOnline && (now - ts) < 120000; // 2 мин
+    return !!u.isOnline && (now - ts) < 120000;
   };
 
   return (
-    <div style={{ minHeight:'100vh', color:'#e5e7eb' }}>
+    <div style={{ minHeight:'100vh', color:'#e5e7eb', background:'linear-gradient(180deg,#0b1220,#0f172a)' }}>
       {/* top bar */}
-      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'rgba(17,24,39,0.6)', backdropFilter:'saturate(120%) blur(4px)', borderBottom:'1px solid #1f2937', position:'sticky', top:0, zIndex:10}}>
+      <div style={{
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'14px 20px', background:'rgba(17,24,39,0.6)', backdropFilter:'saturate(120%) blur(4px)',
+        borderBottom:'1px solid #1f2937', position:'sticky', top:0, zIndex:10
+      }}>
         <div style={{fontSize:22, fontWeight:700}}>Admin Panel</div>
-        <div style={{display:'flex', gap:10}}>
-          <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>Logout</button>
-        </div>
+        <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={logout}>Logout</button>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'300px 1fr', gap: 24, padding:20 }}>
-        {/* LEFT: list + create */}
+        {/* LEFT */}
         <div style={{ background:'#111827', border:'1px solid #1f2937', borderRadius:12, padding:16, boxShadow:'0 8px 22px rgba(0,0,0,.25)' }}>
           <h3 style={{marginTop:0}}>Users</h3>
 
@@ -166,107 +145,53 @@ export default function AdminPage() {
               onChange={e=>setInternalName(e.target.value)}
               style={{flex:1, minWidth:0, background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}}
             />
-            <button
-              className="btn"
-              onClick={createUser}
-              disabled={creating}
-              style={{borderColor:'#38bdf8', color:'#38bdf8'}}
-            >
+            <button className="btn" onClick={createUser} disabled={creating} style={{borderColor:'#38bdf8', color:'#38bdf8'}}>
               {creating ? 'Creating…' : 'Create'}
             </button>
           </div>
 
           <div style={{ display:'grid', gap:8 }}>
             {users.map(u=>(
-              <button
-                key={u.id}
-                className="btn"
-                onClick={()=>openUser(u.id)}
+              <button key={u.id} className="btn" onClick={()=>openUser(u.id)}
                 style={{
-                  textAlign:'left',
-                  background:'#0b1220',
-                  border:'1px solid #1f2937',
-                  color:'#e5e7eb',
-                  borderRadius:10,
-                  padding:'10px 12px',
-                  display:'flex',
-                  alignItems:'center',
-                  gap:8
-                }}
-              >
-                <span style={{
-                  width:10, height:10, borderRadius:'50%',
-                  background: isOnline(u) ? '#22c55e' : '#64748b'
-                }}/>
-                <span style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis'}}>
-                  {u.adminNoteName || `User #${u.id}`}
-                </span>
-
-                {/* непрочитанное — конверт, если последний писал ПОЛЬЗОВАТЕЛЬ */}
-                {unreadMap[u.id] && (
-                  <span title="New message" style={{
-                    marginLeft:8,
-                    width:14, height:10,
-                    border:'2px solid #38bdf8',
-                    borderTop:'none',
-                    borderRadius:2,
-                    position:'relative'
-                  }}>
-                    <span style={{
-                      position:'absolute', left:0, top:-2, right:0, height:2, background:'#38bdf8',
-                      transform:'skewX(-20deg)'
-                    }}/>
-                  </span>
-                )}
+                  textAlign:'left', background:'#0b1220', border:'1px solid #1f2937',
+                  color:'#e5e7eb', borderRadius:10, padding:'10px 12px',
+                  display:'flex', alignItems:'center', gap:8
+                }}>
+                <span style={{ width:10, height:10, borderRadius:'50%', background: isOnline(u) ? '#22c55e' : '#64748b' }}/>
+                {u.adminNoteName || `User #${u.id}`}
               </button>
             ))}
             {users.length === 0 && <div className="muted" style={{color:'#94a3b8'}}>No users yet</div>}
           </div>
         </div>
 
-        {/* RIGHT: details */}
+        {/* RIGHT */}
         <div>
           {selected ? (
             <>
               <div style={{ background:'#111827', border:'1px solid #1f2937', borderRadius:12, padding:16, boxShadow:'0 8px 22px rgba(0,0,0,.25)' }}>
                 <h3 style={{marginTop:0}}>User details</h3>
-
-                {/* Кнопка чата для ЭТОГО пользователя */}
-                <div style={{display:'flex', gap:8, margin:'4px 0 12px'}}>
-                  <a
-                    href={`/chat?uid=${selected.id}`}
-                    className="btn"
-                    style={{borderColor:'#38bdf8', color:'#38bdf8', textDecoration:'none'}}
-                    title="Open chat with this user"
-                  >
-                    Open chat with user
-                  </a>
-                </div>
-
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
                   <div>
                     <div><b>Login:</b> {selected.loginId}</div>
                     <div><b>Password:</b> {selected.password ?? '—'}</div>
 
                     <label style={{ display:'block', marginTop:12 }}>Internal name</label>
-                    <input
-                      className="input"
-                      value={internalName}
-                      onChange={e=>setInternalName(e.target.value)}
-                      style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}}
-                    />
+                    <input className="input" value={internalName} onChange={e=>setInternalName(e.target.value)}
+                           style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
 
                     <label style={{ display:'block', marginTop:12 }}>Name on site</label>
                     <input id="nameOnSite" className="input" defaultValue={selected.profile?.nameOnSite||''}
-                      style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
+                           style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
 
                     <label style={{ display:'block', marginTop:8 }}>ID on site</label>
                     <input id="idOnSite" className="input" defaultValue={selected.profile?.idOnSite||''}
-                      style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
+                           style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
 
                     <label style={{ display:'block', marginTop:8 }}>Residence</label>
                     <input id="residence" className="input" defaultValue={selected.profile?.residence||''}
-                      style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
+                           style={{width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px'}} />
 
                     <button className="btn" style={{borderColor:'#a78bfa', color:'#a78bfa', marginTop:12}} onClick={saveProfile}>Save profile</button>
                   </div>
@@ -274,14 +199,11 @@ export default function AdminPage() {
                   <div>
                     <div className="muted" style={{color:'#94a3b8'}}>Profile photo</div>
                     {selected.profile?.photoUrl ? (
-                      <img
-                        src={selected.profile.photoUrl}
-                        alt="photo"
-                        style={{ width:140, height:140, borderRadius:'50%', objectFit:'cover', border:'2px solid #334155', boxShadow:'0 8px 16px rgba(0,0,0,.35)', marginTop:6 }}
-                      />
+                      <img src={selected.profile.photoUrl} alt="photo"
+                           style={{ width:140, height:140, borderRadius:'50%', objectFit:'cover', border:'2px solid #334155',
+                                    boxShadow:'0 8px 16px rgba(0,0,0,.35)', marginTop:6 }} />
                     ) : <div className="muted" style={{color:'#94a3b8', marginTop:6}}>No photo</div>}
-                    <input type="file" accept="image/*" onChange={uploadPhoto}
-                      style={{ marginTop:8, color:'#e5e7eb' }} />
+                    <input type="file" accept="image/*" onChange={uploadPhoto} style={{ marginTop:8, color:'#e5e7eb' }} />
                   </div>
                 </div>
               </div>
@@ -290,24 +212,18 @@ export default function AdminPage() {
                 <h3 style={{marginTop:0}}>Moderation</h3>
 
                 <label>CODE <span style={{color:'#94a3b8'}}>({code?.length || 0} characters)</span></label>
-                <textarea
-                  className="input"
-                  style={{ height:160, width:'100%', background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px' }}
-                  value={code}
-                  onChange={e=>setCode(e.target.value)}
-                />
+                <textarea className="input" style={{ height:160, width:'100%', background:'#0b1220', border:'1px solid #1f2937',
+                                                     color:'#e5e7eb', borderRadius:8, padding:'8px 10px' }}
+                          value={code} onChange={e=>setCode(e.target.value)} />
 
                 <label style={{ marginTop:8, display:'block' }}>Emit interval, seconds</label>
-                <input
-                  className="input"
-                  type="number" min={1}
-                  value={emitInterval}
-                  onChange={e=>setEmitInterval(parseInt(e.target.value||'1'))}
-                  style={{ background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px' }}
-                />
+                <input className="input" type="number" min={1} value={emitInterval}
+                       onChange={e=>setEmitInterval(parseInt(e.target.value||'1'))}
+                       style={{ background:'#0b1220', border:'1px solid #1f2937', color:'#e5e7eb', borderRadius:8, padding:'8px 10px' }} />
 
                 <div style={{ display:'flex', gap:8, marginTop:12 }}>
                   <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={saveModeration}>Save</button>
+                  <a className="btn" href={`/admin/chat/${selected.id}`} style={{borderColor:'#22c55e', color:'#22c55e'}}>Open chat</a>
                   <button className="btn" onClick={deleteUser} style={{ borderColor:'#ef4444', color:'#ef4444' }}>Delete user</button>
                 </div>
               </div>
@@ -318,7 +234,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Toast */}
       {toast && (
         <div style={{
           position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)',
