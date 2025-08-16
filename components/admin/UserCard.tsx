@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 interface UserCardProps {
   user: {
@@ -17,20 +16,23 @@ interface UserCardProps {
 
 export default function UserCard({ user }: UserCardProps) {
   return (
-    <Card className="mb-4 shadow-md">
-      <CardHeader>
+    <div className="border rounded-lg shadow-md p-4 mb-4 bg-white">
+      <div className="mb-2">
         <h3 className="text-lg font-semibold">
-          {user.name || "Без имени"} {user.isAdmin && <span className="text-red-500">(Админ)</span>}
+          {user.name || "Без имени"}{" "}
+          {user.isAdmin && (
+            <span className="text-red-500 font-bold">(Админ)</span>
+          )}
         </h3>
         <p className="text-sm text-gray-500">{user.email}</p>
-      </CardHeader>
-      <CardContent className="space-y-2">
+      </div>
+      <div className="space-y-1 text-sm">
         <p>
           <span className="font-semibold">ID:</span> {user.id}
         </p>
         <p>
           <span className="font-semibold">Статус:</span>{" "}
-          {user.isActive ? "Активен" : "Заблокирован"}
+          {user.isActive ? "Активен ✅" : "Неактивен ❌"}
         </p>
         <p>
           <span className="font-semibold">Создан:</span>{" "}
@@ -44,7 +46,7 @@ export default function UserCard({ user }: UserCardProps) {
             <span className="italic text-gray-400">нет</span>
           )}
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
