@@ -1,48 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { signToken, setAuthCookie } from '@/lib/auth';
+import bcrypt from 'bcryptjs';
+import { setAuthCookie } from '@/lib/auth';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
     const { loginId, password } = await req.json();
+
     if (!loginId || !password) {
-      return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing loginId or password' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { loginId } });
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid login' }, { status: 401 });
-    }
-
-    // Проверка пароля:
-    //  - ADMIN: сверяем bcrypt-хэш в passwordHash
-    //  - USER : сверяем с loginPassword в открытом виде
-    let ok = false;
-
-    if (user.role === 'ADMIN') {
-      if (!user.passwordHash) {
-        return NextResponse.json({ error: 'Admin password not set' }, { status: 500 });
+    // Берём пользователя по логину
+    const user = await prisma.user.findUnique({
+      where: { loginId },
+      select: {
+        id: true,
+        loginId: true,
+        password: true,       // ХЭШ пароля
+        role: true
       }
-      ok = await bcrypt.compare(password, user.passwordHash);
-    } else {
-      ok = !!user.loginPassword && password === user.loginPassword;
-    }
-
-    if (!ok) {
-      return NextResponse.json({ error: 'Wrong password' }, { status: 401 });
-    }
-
-    const token = signToken({ uid: user.id, role: user.role });
-    const res = NextResponse.json({
-      ok: true,
-      role: user.role,
-      redirect: user.role === 'ADMIN' ? '/admin' : '/dashboard'
     });
-    setAuthCookie(res, token);
+
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // Ставим cookie-сессию
+    const res = NextResponse.json({ ok: true, role: user.role });
+    setAuthCookie(res, { id: user.id, role: user.role });
     return res;
   } catch (e) {
-    console.error('Login error', e);
+    console.error('LOGIN ERROR', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
