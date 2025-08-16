@@ -1,29 +1,33 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import UserTopBar from '@/components/UserTopBar';
-import React from 'react';
+import { useEffect } from 'react';
+import UserTopBar from '@/components/UserNav';
 
-const REVIEWS = [
-  "Хруст огурцов идеальный, соль не перебор, укроп как надо — закусь, которую не стыдно подать даже капризному гостю.",
-  "Слегка кислит, но в этом шарм — такой баланс делает вкус запоминающимся. В банку руку тянет сама.",
-  "Уверенный солёный профиль без лишней резкости, чеснок даёт аромат, а не забивает всё вокруг.",
-  "Хороши и с картошкой, и в одиночку. Сок не мутный, специи на дне аккуратно, без мусора.",
-  "Если любишь настоящие солёные огурцы, а не сладкие маринады, — это попадание в десятку.",
-  "Ни кожи-бронежилета, ни ватной мякоти — текстура ровная, упругая, как и должна быть.",
-  "Единственный минус — заканчиваются быстрее, чем планируешь. Но это приятная проблема."
+const R = [
+  'Огурцы топ, хрустят и солятся как надо. Пахнут летом и огородом.',
+  'Хруст идеальный, лодочки для бутеров получаются шикарные.',
+  'Чуть соли, чуть уксуса, и уже праздник. Претензий нет.',
+  'Семечки почти не чувствуются, текстура ровная, приятно есть.',
+  'Ели всей компанией, все остались довольны, беру еще.',
+  'Маринад нежный, без резкости, но не пресный. Отличный баланс.',
+  'Если любишь соленые огурцы, это то, что надо. Рекомендую.'
 ];
 
 export default function ReviewsPage(){
+  useEffect(()=>{},[]);
   return (
     <div style={{minHeight:'100vh', backgroundImage:'url(/images/Background_1.webp)', backgroundSize:'cover', backgroundPosition:'center'}}>
       <UserTopBar />
-      <div style={{maxWidth:900, margin:'40px auto', display:'grid', gap:14}}>
-        {REVIEWS.map((t, i)=>(
-          <div key={i} style={{background:'rgba(17,24,39,0.75)', color:'#e5e7eb', border:'1px solid #1f2937', borderRadius:12, padding:16}}>
-            {t}
-          </div>
-        ))}
+      <div style={{maxWidth:900, margin:'20px auto', color:'#e5e7eb', padding:'0 12px'}}>
+        <h2>Reviews</h2>
+        <div style={{display:'grid', gap:10}}>
+          {R.map((t,i)=>(
+            <div key={i} style={{background:'rgba(17,24,39,0.85)', border:'1px solid #1f2937', borderRadius:10, padding:12}}>
+              {t}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
