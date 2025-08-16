@@ -38,7 +38,7 @@ export default function LoginPage(){
       position:'relative',
       overflow:'hidden'
     }}>
-      {/* ЛОГО (щит) — в 2 раза больше */}
+      {/* ЛОГО-щит (в 2 раза больше) */}
       <div
         aria-hidden
         style={{
@@ -54,13 +54,7 @@ export default function LoginPage(){
           zIndex:0
         }}
       >
-        <Image
-          src="/images/Logo_3.webp"
-          alt=""
-          fill
-          priority
-          style={{objectFit:'contain'}}
-        />
+        <Image src="/images/Logo_3.webp" alt="" fill priority style={{objectFit:'contain'}} />
       </div>
 
       {/* Форма логина */}
