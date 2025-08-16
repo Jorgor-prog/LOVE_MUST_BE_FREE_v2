@@ -35,14 +35,13 @@ export default function UserTopBar({ compact=false }:{compact?:boolean}){
       borderBottom:'1px solid rgba(31,41,55,0.9)'
     }}>
       <div style={{maxWidth:1200, margin:'0 auto', display:'flex', alignItems:'center', gap:14, padding:'10px 12px'}}>
-        {/* крупный щит слева */}
         <div style={{display:'flex', alignItems:'center', gap:10}}>
           <Image src="/images/Logo_3.webp" alt="logo" width={compact?54:72} height={compact?54:72} style={{objectFit:'contain'}}/>
           <span style={{fontWeight:800, color:'#e5e7eb'}}>LOVE MUST BE FREE</span>
         </div>
 
         <div style={{marginLeft:'auto', display:'flex', gap:10, flexWrap:'wrap'}}>
-          <Link className="btn" href="/dashboard">Dashboard</Link>
+          <Link className="btn" href="/dashboard">Home</Link>
           <Link className="btn" href="/reviews">Reviews</Link>
           <Link className="btn" href="/about">About</Link>
           <Link className="btn" href="/chat" style={{position:'relative', borderColor:'#38bdf8', color:'#38bdf8'}}>
