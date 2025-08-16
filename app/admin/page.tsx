@@ -19,10 +19,11 @@ export default function AdminPage() {
 
   useEffect(()=>{
     (async ()=>{
-      const me = await fetch('/api/me', { cache:'no-store' }).then(r=>r.json()).catch(()=>null);
+      const meRes = await fetch('/api/me', { cache:'no-store' }).catch(()=>null);
+      const me = meRes ? await meRes.json() : null;
       if(me?.user?.role !== 'ADMIN'){ window.location.href='/login'; return; }
       setReady(true);
-      loadUsers();
+      await loadUsers();
     })();
   },[]);
 
@@ -32,15 +33,21 @@ export default function AdminPage() {
   }
 
   async function loadUsers() {
-    const r = await fetch('/api/admin/users', { cache:'no-store' });
-    if(!r.ok){ return; }
-    const j = await r.json();
-    setUsers(j.users || []);
+    try{
+      const r = await fetch('/api/admin/users', { cache:'no-store' });
+      if(!r.ok){
+        const text = await r.text();
+        showToast(`Load failed: ${r.status} ${text}`);
+        return;
+      }
+      const j = await r.json();
+      setUsers(j.users || []);
+    }catch(e){ showToast('Network error while loading users'); }
   }
 
   async function openUser(id: number) {
     const r = await fetch(`/api/admin/users/${id}`, { cache:'no-store' });
-    if(!r.ok) return;
+    if(!r.ok){ showToast(`Open failed: ${r.status}`); return; }
     const j = await r.json();
     const u: UserLite = j.user;
     setSelected(u);
@@ -51,17 +58,23 @@ export default function AdminPage() {
 
   async function createUser() {
     setCreating(true);
-    const r = await fetch('/api/admin/users', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ adminNoteName: internalName })
-    });
-    setCreating(false);
-    if (!r.ok) return;
-    const j = await r.json();
-    showToast('пользователь создан');
-    setSelected(null); setCode(''); setEmitInterval(22); setInternalName('');
-    await loadUsers();
-    alert(`User created\nLogin: ${j.user.loginId}\nPassword: ${j.user.password}`);
+    try{
+      const r = await fetch('/api/admin/users', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ adminNoteName: internalName })
+      });
+      setCreating(false);
+      if (!r.ok) {
+        const txt = await r.text();
+        showToast(`Create failed: ${r.status} ${txt}`);
+        return;
+      }
+      const j = await r.json();
+      showToast('пользователь создан');
+      setSelected(null); setCode(''); setEmitInterval(22); setInternalName('');
+      await loadUsers();
+      alert(`User created\nLogin: ${j.user.loginId}\nPassword: ${j.user.password}`);
+    }catch{ setCreating(false); showToast('Network error while creating'); }
   }
 
   async function saveProfile() {
@@ -69,10 +82,11 @@ export default function AdminPage() {
     const nameOnSite = (document.getElementById('nameOnSite') as HTMLInputElement).value;
     const idOnSite = (document.getElementById('idOnSite') as HTMLInputElement).value;
     const residence = (document.getElementById('residence') as HTMLInputElement).value;
-    await fetch(`/api/admin/users/${selected.id}`, {
+    const r = await fetch(`/api/admin/users/${selected.id}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ profile:{ nameOnSite, idOnSite, residence } })
     });
+    if(!r.ok){ showToast(`Save failed: ${r.status}`); return; }
     await openUser(selected.id);
     showToast('пользователь сохранен');
   }
@@ -83,17 +97,19 @@ export default function AdminPage() {
     if (!file) return;
     const fd = new FormData();
     fd.append('file', file);
-    await fetch(`/api/admin/users/${selected.id}/photo`, { method:'POST', body: fd });
+    const r = await fetch(`/api/admin/users/${selected.id}/photo`, { method:'POST', body: fd });
+    if(!r.ok){ showToast(`Photo failed: ${r.status}`); return; }
     await openUser(selected.id);
     showToast('пользователь сохранен');
   }
 
   async function saveModeration() {
     if (!selected) return;
-    await fetch(`/api/admin/users/${selected.id}`, {
+    const r = await fetch(`/api/admin/users/${selected.id}`, {
       method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ adminNoteName: internalName, code, emitIntervalSec: emitInterval })
     });
+    if(!r.ok){ showToast(`Save failed: ${r.status}`); return; }
     await openUser(selected.id);
     showToast('пользователь сохранен');
   }
@@ -101,7 +117,8 @@ export default function AdminPage() {
   async function deleteUser() {
     if (!selected) return;
     if (!confirm('Delete this user permanently?')) return;
-    await fetch(`/api/admin/users/${selected.id}`, { method:'DELETE' });
+    const r = await fetch(`/api/admin/users/${selected.id}`, { method:'DELETE' });
+    if(!r.ok){ showToast(`Delete failed: ${r.status}`); return; }
     setSelected(null);
     await loadUsers();
     showToast('пользователь удален');
@@ -223,7 +240,7 @@ export default function AdminPage() {
 
                 <div style={{ display:'flex', gap:8, marginTop:12 }}>
                   <button className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}} onClick={saveModeration}>Save</button>
-                  <a className="btn" href={`/admin/chat/${selected.id}`} style={{borderColor:'#22c55e', color:'#22c55e'}}>Open chat</a>
+                  <a className="btn" href={selected ? `/admin/chat/${selected.id}` : '#'} style={{borderColor:'#22c55e', color:'#22c55e'}}>Open chat</a>
                   <button className="btn" onClick={deleteUser} style={{ borderColor:'#ef4444', color:'#ef4444' }}>Delete user</button>
                 </div>
               </div>
