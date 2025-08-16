@@ -1,18 +1,10 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 model User {
   id             Int      @id @default(autoincrement())
   loginId        String   @unique
-  password       String?  // может быть null, чтобы не ломать старых юзеров
-  plainPassword  String?  // тоже null
-  adminNoteName  String?
+  password       String
+  plainPassword  String?
+  role           String   @default("USER")   // 👈 добавляем
   profile        Json?
+  createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
