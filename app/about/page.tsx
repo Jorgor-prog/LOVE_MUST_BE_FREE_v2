@@ -1,31 +1,24 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import Image from 'next/image';
-import { useEffect } from 'react';
-import UserNav from '@/components/UserNav';
+import UserTopBar from '@/components/UserTopBar';
+import React from 'react';
 
 export default function AboutPage(){
-  useEffect(()=>{ document.body.style.background = '#0b1220'; return ()=>{ document.body.style.background=''; };},[]);
+  const text = `We operate quietly and precisely. All services are already ordered and paid, your task is to clarify and confirm details.
+Our model is simple and transparent, designed to reduce friction and keep you focused on outcomes.
+Security and discretion are embedded in every step.
+We streamline each interaction, minimize unnecessary steps, and verify only what truly matters so your time isn't wasted.
+If something feels off, contact support — we respond quickly.
+We believe in clear commitments, stable pacing, and a user experience that stays consistent across pages.
+Expect reliability, measured speed, and a calm interface that stays readable in any light.`;
+
   return (
-    <div style={{minHeight:'100vh', position:'relative', color:'#e5e7eb'}}>
-      <Image src="/images/Background_1.webp" alt="" fill style={{objectFit:'cover', opacity:.3, filter:'blur(3px)'}}/>
-      <div style={{position:'relative', zIndex:1}}>
-        <UserNav/>
-        <div style={{maxWidth:960, margin:'0 auto', padding:'20px 16px'}}>
-          <a href="/dashboard" className="btn" style={{borderColor:'#38bdf8', color:'#38bdf8'}}>Back</a>
-          <h2 style={{marginTop:16}}>About project</h2>
-          <p style={{opacity:.9, lineHeight:1.6}}>
-            Наш проект создан с идеей напомнить каждому, что свобода — это не абстрактное слово, а реальная сила,
-            которая объединяет людей. Мы стремимся создавать пространство, где каждый чувствует себя услышанным
-            и уважаемым. Здесь нет лишних барьеров и формальностей — только искренность, открытость и желание
-            идти навстречу. Мы верим, что в современном мире нужно не терять человечность, а наоборот — усиливать
-            её простыми действиями. Наши пользователи становятся не просто участниками, а частью истории, где
-            ценность личности стоит на первом месте. Каждый шаг здесь — это шаг в сторону честности и доверия.
-            Поэтому мы продолжаем строить платформу, которая вдохновляет, объединяет и напоминает: свобода —
-            это право, которым должен обладать каждый.
-          </p>
-        </div>
+    <div style={{minHeight:'100vh', backgroundImage:'url(/images/Background_1.webp)', backgroundSize:'cover', backgroundPosition:'center'}}>
+      <UserTopBar />
+      <div style={{maxWidth:900, margin:'40px auto', background:'rgba(17,24,39,0.75)', color:'#e5e7eb', border:'1px solid #1f2937', borderRadius:14, padding:24, lineHeight:1.6}}>
+        <h1 style={{marginTop:0, marginBottom:12}}>About</h1>
+        <p style={{whiteSpace:'pre-wrap'}}>{text}</p>
       </div>
     </div>
   );
