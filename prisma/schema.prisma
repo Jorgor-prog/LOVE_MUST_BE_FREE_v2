@@ -1,21 +1,18 @@
-datasource db {
-  provider = "postgresql" // или "mysql" / "sqlite" в зависимости от твоей БД
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 model User {
-  id             Int       @id @default(autoincrement())
-  loginId        String    @unique
-  password       String    // хэшированный пароль
-  plainPassword  String?   // открытый пароль для админа
+  id             Int      @id @default(autoincrement())
+  loginId        String   @unique
+  password       String?  // может быть null, чтобы не ломать старых юзеров
+  plainPassword  String?  // тоже null
   adminNoteName  String?
   profile        Json?
-  codeConfig     Json?
-  isOnline       Boolean   @default(false)
-  updatedAt      DateTime  @updatedAt
-  role           String    @default("USER")
+  updatedAt      DateTime @updatedAt
 }
