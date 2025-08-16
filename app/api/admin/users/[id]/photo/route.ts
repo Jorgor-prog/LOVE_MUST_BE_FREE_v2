@@ -1,26 +1,34 @@
-import { NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionUser } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth';
 
-export const runtime = 'nodejs'; // нужен fs в проде
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await requireAdmin(req);
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const me = await getSessionUser();
-  if (!me || me.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
+  const userId = Number(params.id);
   const form = await req.formData();
   const file = form.get('file') as File | null;
   if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
 
-  // временно сохраняем в /tmp и выдаём data: URL (чтобы не зависеть от постоянного диска)
-  const buf = Buffer.from(await file.arrayBuffer());
-  const base64 = `data:${file.type};base64,` + buf.toString('base64');
+  const ab = await file.arrayBuffer();
+  const b64 = Buffer.from(ab).toString('base64');
+  const mime = file.type || 'image/jpeg';
+  const dataUrl = `data:${mime};base64,${b64}`;
 
-  await prisma.profile.upsert({
-    where: { userId: Number(params.id) },
-    update: { photoUrl: base64 },
-    create: { userId: Number(params.id), photoUrl: base64 }
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      profile: {
+        upsert: {
+          create: { photoUrl: dataUrl },
+          update: { photoUrl: dataUrl }
+        }
+      }
+    }
   });
 
-  return NextResponse.json({ ok: true, photoUrl: base64 });
+  return NextResponse.json({ ok: true });
 }
