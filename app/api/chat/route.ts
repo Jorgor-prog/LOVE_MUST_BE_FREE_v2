@@ -1,23 +1,49 @@
-import { NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionUser } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
-export async function POST(req: Request) {
-  const me = await getSessionUser();
-  if(!me) return NextResponse.json({ error:'Unauthorized' }, { status:401 });
+/**
+ * GET /api/chat?peerId=NUMBER
+ * Возвращает все сообщения между мной и peerId
+ */
+export async function GET(req: NextRequest) {
+  const payload = await requireAuth(req);
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await req.json().catch(()=>({}));
-  const text = String(body?.text || '').slice(0, 2000);
+  const { searchParams } = new URL(req.url);
+  const peerId = Number(searchParams.get('peerId') || '0');
+  if (!peerId) return NextResponse.json({ messages: [] });
 
-  if(body?.toAdmin){
-    const admin = await prisma.user.findFirst({ where:{ role:'ADMIN' } });
-    if(!admin) return NextResponse.json({ error:'No admin' }, { status:400 });
-    const msg = await prisma.message.create({ data: { fromId: me.id, toId: admin.id, text } });
-    return NextResponse.json({ message: msg });
-  }
+  const msgs = await prisma.message.findMany({
+    where: {
+      OR: [
+        { fromId: payload.uid, toId: peerId },
+        { fromId: peerId, toId: payload.uid }
+      ]
+    },
+    orderBy: { id: 'asc' },
+    select: { id: true, fromId: true, toId: true, text: true, createdAt: true }
+  });
 
-  const toId = Number(body?.toId || 0);
-  if(!toId || !text) return NextResponse.json({ error:'Bad request' }, { status:400 });
-  const msg = await prisma.message.create({ data: { fromId: me.id, toId, text } });
+  return NextResponse.json({ messages: msgs });
+}
+
+/**
+ * POST /api/chat
+ * body: { toId: number, text: string }
+ */
+export async function POST(req: NextRequest) {
+  const payload = await requireAuth(req);
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { toId, text } = await req.json();
+  if (!toId || !text) return NextResponse.json({ error: 'Missing' }, { status: 400 });
+
+  const msg = await prisma.message.create({
+    data: { fromId: payload.uid, toId, text }
+  });
+
   return NextResponse.json({ message: msg });
 }
