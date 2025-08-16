@@ -1,81 +1,127 @@
-export const runtime = 'nodejs';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const id = Number(params.id);
+  const id = Number(ctx.params.id);
+  if (!id) return NextResponse.json({ error: 'Bad id' }, { status: 400 });
+
   const user = await prisma.user.findUnique({
     where: { id },
-    select: {
-      id: true,
-      loginId: true,
-      loginPassword: true,
-      adminNoteName: true,
-      isOnline: true,
-      updatedAt: true,
-      profile: { select: { nameOnSite: true, idOnSite: true, residence: true, photoUrl: true } },
-      codeConfig: { select: { code: true, emitIntervalSec: true, paused: true } }
-    }
+    include: { profile: true, codeConfig: true }
   });
-  if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ user });
+  if (!user || user.role !== 'USER') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  // маппим loginPassword -> password для удобства админки
+  const payload = {
+    id: user.id,
+    loginId: user.loginId,
+    adminNoteName: user.adminNoteName,
+    isOnline: user.isOnline,
+    updatedAt: user.updatedAt,
+    profile: user.profile ? {
+      nameOnSite: user.profile.nameOnSite || '',
+      idOnSite: user.profile.idOnSite || '',
+      residence: user.profile.residence || '',
+      photoUrl: user.profile.photoUrl || null
+    } : undefined,
+    codeConfig: user.codeConfig ? {
+      code: user.codeConfig.code || '',
+      emitIntervalSec: user.codeConfig.emitIntervalSec,
+      paused: user.codeConfig.paused
+    } : undefined,
+    password: user.loginPassword || null
+  };
+
+  return NextResponse.json({ user: payload });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const id = Number(params.id);
-  const body = await req.json();
+  const id = Number(ctx.params.id);
+  if (!id) return NextResponse.json({ error: 'Bad id' }, { status: 400 });
 
-  const dataUser: any = {};
-  const dataProfile: any = {};
-  const dataCode: any = {};
+  const body = await req.json().catch(() => ({}));
 
-  if (typeof body.adminNoteName === 'string') dataUser.adminNoteName = body.adminNoteName;
+  const { profile, adminNoteName, code, emitIntervalSec } = body || {};
 
-  if (body.profile) {
-    const { nameOnSite, idOnSite, residence } = body.profile;
-    if (typeof nameOnSite === 'string') dataProfile.nameOnSite = nameOnSite;
-    if (typeof idOnSite === 'string') dataProfile.idOnSite = idOnSite;
-    if (typeof residence === 'string') dataProfile.residence = residence;
+  // Обновление заметки админа
+  if (typeof adminNoteName === 'string') {
+    await prisma.user.update({
+      where: { id },
+      data: { adminNoteName }
+    });
   }
 
-  if (typeof body.code === 'string') dataCode.code = body.code;
-  if (typeof body.emitIntervalSec === 'number') dataCode.emitIntervalSec = body.emitIntervalSec;
-  if (typeof body.paused === 'boolean') dataCode.paused = body.paused;
-
-  await prisma.user.update({
-    where: { id },
-    data: {
-      ...(Object.keys(dataUser).length ? dataUser : {}),
-      profile: Object.keys(dataProfile).length
-        ? { upsert: { create: dataProfile, update: dataProfile } }
-        : undefined,
-      codeConfig: Object.keys(dataCode).length
-        ? { upsert: { create: { code: '', emitIntervalSec: 22, paused: false, ...dataCode }, update: dataCode } }
-        : undefined
+  // Обновление профиля
+  if (profile && typeof profile === 'object') {
+    const { nameOnSite, idOnSite, residence } = profile;
+    const existing = await prisma.profile.findUnique({ where: { userId: id } });
+    if (existing) {
+      await prisma.profile.update({
+        where: { userId: id },
+        data: {
+          nameOnSite: typeof nameOnSite === 'string' ? nameOnSite : existing.nameOnSite,
+          idOnSite: typeof idOnSite === 'string' ? idOnSite : existing.idOnSite,
+          residence: typeof residence === 'string' ? residence : existing.residence
+        }
+      });
+    } else {
+      await prisma.profile.create({
+        data: {
+          userId: id,
+          nameOnSite: typeof nameOnSite === 'string' ? nameOnSite : '',
+          idOnSite: typeof idOnSite === 'string' ? idOnSite : '',
+          residence: typeof residence === 'string' ? residence : ''
+        }
+      });
     }
-  });
+  }
+
+  // Обновление настроек кода
+  if (typeof code === 'string' || typeof emitIntervalSec === 'number') {
+    const cfg = await prisma.codeConfig.findUnique({ where: { userId: id } });
+    if (cfg) {
+      await prisma.codeConfig.update({
+        where: { userId: id },
+        data: {
+          code: typeof code === 'string' ? code : cfg.code,
+          emitIntervalSec: typeof emitIntervalSec === 'number' ? emitIntervalSec : cfg.emitIntervalSec
+        }
+      });
+    } else {
+      await prisma.codeConfig.create({
+        data: {
+          userId: id,
+          code: typeof code === 'string' ? code : '',
+          emitIntervalSec: typeof emitIntervalSec === 'number' ? emitIntervalSec : 22
+        }
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
   const admin = await requireAdmin(req);
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const id = Number(params.id);
+  const id = Number(ctx.params.id);
+  if (!id) return NextResponse.json({ error: 'Bad id' }, { status: 400 });
 
-  await prisma.message.deleteMany({ where: { OR: [{ fromId: id }, { toId: id }] } });
-  await prisma.codeConfig.deleteMany({ where: { userId: id } });
-  await prisma.profile.deleteMany({ where: { userId: id } });
-  await prisma.user.delete({ where: { id } });
+  // Удаляем зависимые сущности вручную, чтобы избежать конфликтов FK
+  await prisma.message.deleteMany({ where: { OR: [{ fromId: id }, { toId: id }] } }).catch(() => {});
+  await prisma.codeConfig.deleteMany({ where: { userId: id } }).catch(() => {});
+  await prisma.profile.deleteMany({ where: { userId: id } }).catch(() => {});
+  await prisma.user.delete({ where: { id } }).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }
