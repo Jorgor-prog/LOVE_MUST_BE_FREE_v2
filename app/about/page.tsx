@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 'use client';
+export const dynamic = 'force-dynamic';
+
 import Image from 'next/image';
 import { useEffect } from 'react';
 import UserNav from '@/components/UserNav';
