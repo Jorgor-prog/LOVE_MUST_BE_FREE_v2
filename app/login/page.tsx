@@ -38,25 +38,7 @@ export default function LoginPage(){
       position:'relative',
       overflow:'hidden'
     }}>
-      {/* БОЛЬШОЕ ЛОГО-ЩИТ ЗА ФОРМОЙ */}
-      <svg
-        aria-hidden
-        width="0" height="0" style={{position:'absolute'}}
-      >
-        <defs>
-          <clipPath id="shield" clipPathUnits="objectBoundingBox">
-            {/* Щит: верх круглый, низ острый */}
-            <path d="
-              M 0.5,0
-              C 0.78,0.0 1.0,0.12 1.0,0.35
-              C 1.0,0.58 0.85,0.78 0.67,0.92
-              C 0.55,1.0 0.45,1.0 0.33,0.92
-              C 0.15,0.78 0.0,0.58 0.0,0.35
-              C 0.0,0.12 0.22,0.0 0.5,0.0 Z" />
-          </clipPath>
-        </defs>
-      </svg>
-
+      {/* БОЛЬШОЕ ЛОГО ЗА ФОРМОЙ — Logo_3, тот же размер и позиция, что были у щита */}
       <div
         aria-hidden
         style={{
@@ -66,7 +48,6 @@ export default function LoginPage(){
           transform:'translate(-50%,-50%)',
           width:'min(62vw, 560px)',
           height:'min(62vw, 560px)',
-          clipPath:'url(#shield)',
           opacity:0.98,
           filter:'drop-shadow(0 28px 60px rgba(0,0,0,.55))',
           pointerEvents:'none',
@@ -74,11 +55,11 @@ export default function LoginPage(){
         }}
       >
         <Image
-          src="/images/Logo_1.webp"
+          src="/images/Logo_3.webp"
           alt=""
           fill
           priority
-          style={{objectFit:'cover'}}
+          style={{objectFit:'contain'}}
         />
       </div>
 
@@ -98,7 +79,7 @@ export default function LoginPage(){
           backdropFilter:'blur(8px)'
         }}
       >
-        <h2 style={{marginTop:0, textAlign:'center'}}>Sign in</h2>
+        <h2 style={{marginTop:0, textAlign:'center'}}>LOVE MUST BE FREE</h2>
 
         <input
           className="input"
